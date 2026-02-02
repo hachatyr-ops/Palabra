@@ -1,9 +1,12 @@
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Это критически важно для работы Gemini API на Vercel
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+  },
   server: {
     port: 3000,
   },
