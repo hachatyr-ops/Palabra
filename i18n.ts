@@ -1,4 +1,3 @@
-
 import { Translations, Language } from './types';
 
 export const translations: Record<Language, Translations> = {
@@ -30,7 +29,7 @@ export const translations: Record<Language, Translations> = {
     exportBtn: "Save",
     importBtn: "Load",
     importSuccess: "Dictionary updated!",
-    importError: "Invalid file format.",
+    importError: "Invalid file format. Please use a valid export file.",
     placeholder: "Describe your project idea...",
     generateBtn: "Generate Blueprint",
     copyBtn: "Copy Markdown",
@@ -71,7 +70,7 @@ export const translations: Record<Language, Translations> = {
     exportBtn: "Экспорт",
     importBtn: "Импорт",
     importSuccess: "Словарь обновлен!",
-    importError: "Неверный формат.",
+    importError: "Ошибка! Используйте только файлы экспорта Palabra.",
     placeholder: "Опишите идею вашего проекта...",
     generateBtn: "Создать план",
     copyBtn: "Копировать Markdown",

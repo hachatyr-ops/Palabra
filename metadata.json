@@ -1,5 +1,7 @@
 {
   "name": "Palabra - Spanish Learning",
   "description": "A minimalist and efficient tool for learning Spanish vocabulary with AI-powered mnemonics and pronunciation.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

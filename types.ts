@@ -6,6 +6,7 @@ export interface Word {
   spanish: string;
   russian: string;
   addedAt: number;
+  isManual?: boolean;
 }
 
 // Added TechnicalStack to support ProjectBlueprint structure
