@@ -1,7 +1,7 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const LOCAL_DICTIONARY = [
   { es: "Abeja", ru: "Пчела" }, { es: "Abrazo", ru: "Объятие" }, { es: "Abuela", ru: "Бабушка" }, { es: "Abuelo", ru: "Дедушка" }, { es: "Agua", ru: "Вода" },
@@ -56,21 +56,41 @@ export const translateWord = async (word: string, targetLang: 'en' | 'ru'): Prom
 };
 
 export const getSpanishTTS = async (text: string): Promise<string> => {
+  return "";
+};
+
+export const parseVocabularyFromText = async (text: string): Promise<{ es: string; ru: string }[]> => {
   return safeAiCall(async () => {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Pronounce: ${text}` }] }],
+      model: "gemini-3-flash-preview",
+      contents: `Extract Spanish words and their Russian translations from the following text. 
+      The text might be a list, a table, or just sentences. 
+      Return a JSON array of objects with "es" (Spanish) and "ru" (Russian) keys.
+      
+      Text:
+      ${text}`,
       config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              es: { type: Type.STRING },
+              ru: { type: Type.STRING }
+            },
+            required: ["es", "ru"]
+          }
+        }
+      }
     });
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
-  }, "");
+    
+    try {
+      return JSON.parse(response.text || "[]");
+    } catch {
+      return [];
+    }
+  }, []);
 };
 
 export const getRandomWord = async (lang: 'en' | 'ru', startsWith?: string): Promise<{ spanish: string; russian: string }> => {
@@ -81,27 +101,4 @@ export const getRandomWord = async (lang: 'en' | 'ru', startsWith?: string): Pro
   if (pool.length === 0) pool = LOCAL_DICTIONARY;
   const randomIdx = Math.floor(Math.random() * pool.length);
   return { spanish: pool[randomIdx].es, russian: pool[randomIdx].ru };
-};
-
-// Added transcribeAudio to fix error in VoiceButton.tsx
-export const transcribeAudio = async (base64Data: string, mimeType: string, lang: 'en' | 'ru'): Promise<string> => {
-  return safeAiCall(async () => {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: `Transcribe the following Spanish audio. Return ONLY the transcription text.`,
-          },
-        ],
-      },
-    });
-    return response.text?.trim() || "";
-  }, "");
 };

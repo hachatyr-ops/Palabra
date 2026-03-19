@@ -4,7 +4,8 @@ import { Language, Word } from './types';
 import { translations } from './i18n';
 import { Header } from './components/Header';
 import { Button } from './components/Button';
-import { getMnemonicHint, translateWord, getRandomWord, getSpanishTTS } from './services/geminiService';
+import { getMnemonicHint, translateWord, getRandomWord, parseVocabularyFromText } from './services/geminiService';
+import mammoth from 'mammoth';
 
 type SortOption = 'alpha-es' | 'alpha-ru';
 type ConfirmActionType = 'clearAll' | 'smartClean' | 'clearDuplicates' | null;
@@ -119,8 +120,7 @@ const App = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
   const [stats, setStats] = useState({ correct: 0, wrong: 0 });
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const [isFileProcessing, setIsFileProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[lang];
 
@@ -186,23 +186,6 @@ const App = () => {
     return words.filter(w => w.isManual === true).slice(0, 5);
   }, [words]);
   
-  const playWordAudio = useCallback(async (word: string) => {
-    if (isPlayingAudio) return;
-    setIsPlayingAudio(true);
-    try {
-      if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const base64Audio = await getSpanishTTS(word);
-      if (base64Audio) {
-        const bytes = decodeBase64(base64Audio);
-        const buffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContextRef.current.destination);
-        source.start();
-      }
-    } catch (err) { console.error(err); } finally { setIsPlayingAudio(false); }
-  }, [isPlayingAudio]);
-
   const goToNextWord = useCallback(() => {
     if (quizIndex + 1 < quizWords.length) {
       const nextIdx = quizIndex + 1;
@@ -386,34 +369,84 @@ const App = () => {
     link.click();
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      const lines = content.split('\n');
-      if (lines[0].trim() !== EXPORT_HEADER) { alert(t.importError); return; }
-      const newWords: Word[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim(); if (!line) continue;
-        const parts = line.split(',');
-        if (parts.length >= 2) {
-          const sp = parts[0].trim(); const ru = parts[1].trim();
-          if (sp.length > 0 && ru.length > 0 && sp.length < 100 && ru.length < 100)
-            newWords.push({ id: (Date.now() + Math.random()).toString(), spanish: sp, russian: ru, addedAt: Date.now(), isManual: false });
+
+    setIsFileProcessing(true);
+    try {
+      let textContent = "";
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith('.docx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        textContent = result.value;
+      } else if (fileName.endsWith('.doc')) {
+        // For .doc, we try to read as text and let Gemini handle the mess
+        // or just warn the user. Modern .doc are often .docx renamed.
+        // We'll try to read it and see.
+        textContent = await file.text();
+      } else if (fileName.endsWith('.txt')) {
+        textContent = await file.text();
+        // Check if it's our internal export format
+        if (textContent.startsWith(EXPORT_HEADER)) {
+          const lines = textContent.split('\n');
+          const newWords: Word[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim(); if (!line) continue;
+            const parts = line.split(',');
+            if (parts.length >= 2) {
+              const sp = parts[0].trim(); const ru = parts[1].trim();
+              if (sp.length > 0 && ru.length > 0 && sp.length < 100 && ru.length < 100)
+                newWords.push({ id: (Date.now() + Math.random()).toString(), spanish: sp, russian: ru, addedAt: Date.now(), isManual: false });
+            }
+          }
+          if (newWords.length > 0) {
+            setWords(prev => {
+              const existing = new Set(prev.map(w => w.spanish.toLowerCase()));
+              const filtered = newWords.filter(nw => !existing.has(nw.spanish.toLowerCase()));
+              return [...filtered, ...prev];
+            });
+            alert(`${t.importSuccess} (${newWords.length})`);
+          } else alert(t.importError);
+          return;
+        }
+      } else {
+        alert(t.fileUploadError);
+        return;
+      }
+
+      // If we reached here, we have raw text from doc/docx/txt (non-export)
+      // Use Gemini to parse it
+      if (textContent.trim()) {
+        const parsedWords = await parseVocabularyFromText(textContent);
+        if (parsedWords && parsedWords.length > 0) {
+          const newWords: Word[] = parsedWords.map(pw => ({
+            id: (Date.now() + Math.random()).toString(),
+            spanish: pw.es,
+            russian: pw.ru,
+            addedAt: Date.now(),
+            isManual: false
+          }));
+
+          setWords(prev => {
+            const existing = new Set(prev.map(w => w.spanish.toLowerCase()));
+            const filtered = newWords.filter(nw => !existing.has(nw.spanish.toLowerCase()));
+            return [...filtered, ...prev];
+          });
+          alert(`${t.importSuccess} (${newWords.length})`);
+        } else {
+          alert(t.importError);
         }
       }
-      if (newWords.length > 0) {
-        setWords(prev => {
-          const existing = new Set(prev.map(w => w.spanish.toLowerCase()));
-          const filtered = newWords.filter(nw => !existing.has(nw.spanish.toLowerCase()));
-          return [...filtered, ...prev];
-        });
-        alert(`${t.importSuccess} (${newWords.length})`);
-      } else alert(t.importError);
-    };
-    reader.readAsText(file); e.target.value = '';
+    } catch (err) {
+      console.error(err);
+      alert(t.fileUploadError);
+    } finally {
+      setIsFileProcessing(false);
+      e.target.value = '';
+    }
   };
 
   const scrollAlphabet = (direction: 'left' | 'right') => {
@@ -585,7 +618,6 @@ const App = () => {
                 <div className="space-y-4 py-2">
                   <div className="flex items-center justify-center gap-3">
                     <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-none">{quizWords[quizIndex].spanish}</h2>
-                    <button type="button" onClick={() => playWordAudio(quizWords[quizIndex].spanish)} disabled={isPlayingAudio} className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all flex-shrink-0 ${isPlayingAudio ? 'bg-blue-100 text-blue-400 animate-pulse' : 'bg-blue-600 text-white active:scale-90 shadow-md shadow-blue-100'}`}><i className="fas fa-volume-up"></i></button>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
@@ -605,16 +637,18 @@ const App = () => {
           {view === 'home' && <div className="h-2 w-full"></div>}
           {view === 'dictionary' && (
             <div className="grid grid-cols-2 w-full gap-3 h-12">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="h-12 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-blue-700 transition-all shadow-lg shadow-blue-100">{t.importBtn}</button>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isFileProcessing} className="h-12 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50">
+                {isFileProcessing ? t.fileProcessing : t.fileUploadBtn}
+              </button>
               <button type="button" onClick={handleExport} className="h-12 bg-green-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-green-700 transition-all shadow-lg shadow-green-100">{t.exportBtn}</button>
-              <input type="file" ref={fileInputRef} onChange={handleImportFile} accept=".txt" className="hidden" />
+              <input type="file" ref={fileInputRef} onChange={handleImportFile} accept=".txt,.doc,.docx" className="hidden" />
             </div>
           )}
           {view === 'quiz' && !isQuizFinished && (
-            <div className="grid grid-cols-3 w-full gap-3 h-12">
-              <button type="button" onClick={() => setIsQuizFinished(true)} className="h-12 bg-red-500 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-red-600 transition-all shadow-lg shadow-red-100">{t.stop}</button>
+            <div className="grid grid-cols-2 w-full gap-3 h-12">
+              <button type="button" onClick={() => setIsQuizFinished(true)} className="h-12 bg-red-500 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-red-600 transition-all shadow-lg shadow-red-100">{lang === 'ru' ? 'СТОП' : 'STOP'}</button>
               <button type="button" onClick={handleAiHintRequest} disabled={quizResult !== 'wrong' || isAiLoading} className={`h-12 font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center transition-all ${quizResult === 'wrong' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 active:bg-blue-700' : 'bg-slate-50 text-slate-200'}`}>{isAiLoading ? '...' : t.aiHelpBtn}</button>
-              {quizResult === 'wrong' ? <button type="button" onClick={goToNextWord} className="h-12 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-blue-700 shadow-lg shadow-blue-100 animate-in fade-in">{t.nextBtn}</button> : <div className="h-12"></div>}
+              {quizResult === 'wrong' && <button type="button" onClick={goToNextWord} className="h-12 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center justify-center active:bg-blue-700 shadow-lg shadow-blue-100 animate-in fade-in col-span-2">{t.nextBtn}</button>}
             </div>
           )}
           {view === 'quiz' && isQuizFinished && <Button type="button" className="w-full h-14" onClick={() => setView('home')}>{lang === 'ru' ? 'ЗАВЕРШИТЬ' : 'FINISH'}</Button>}

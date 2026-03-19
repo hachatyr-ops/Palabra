@@ -30,17 +30,9 @@ export const translations: Record<Language, Translations> = {
     importBtn: "Load",
     importSuccess: "Dictionary updated!",
     importError: "Invalid file format. Please use a valid export file.",
-    placeholder: "Describe your project idea...",
-    generateBtn: "Generate Blueprint",
-    copyBtn: "Copy Markdown",
-    resetBtn: "Start Over",
-    techStack: "Technical Stack",
-    roadmap: "Roadmap",
-    guidelines: "Guidelines",
-    voiceError: "Microphone access denied.",
-    voiceListen: "Listening...",
-    voiceProcess: "Processing...",
-    stop: "Stop"
+    fileUploadBtn: "Upload Word/Docx",
+    fileUploadError: "Error processing document. Please use .docx or plain text.",
+    fileProcessing: "Analyzing document..."
   },
   ru: {
     welcome: "Palabra",
@@ -71,16 +63,8 @@ export const translations: Record<Language, Translations> = {
     importBtn: "Импорт",
     importSuccess: "Словарь обновлен!",
     importError: "Ошибка! Используйте только файлы экспорта Palabra.",
-    placeholder: "Опишите идею вашего проекта...",
-    generateBtn: "Создать план",
-    copyBtn: "Копировать Markdown",
-    resetBtn: "Начать сначала",
-    techStack: "Стек технологий",
-    roadmap: "План развития",
-    guidelines: "Рекомендации",
-    voiceError: "Ошибка доступа к микрофону.",
-    voiceListen: "Слушаю...",
-    voiceProcess: "Обработка...",
-    stop: "Стоп"
+    fileUploadBtn: "Загрузить Word/Docx",
+    fileUploadError: "Ошибка обработки документа. Используйте .docx или текст.",
+    fileProcessing: "Анализ документа..."
   }
 };
