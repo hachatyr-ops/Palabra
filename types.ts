@@ -3,10 +3,27 @@ export type Language = 'en' | 'ru';
 
 export interface Word {
   id: string;
+  index: number;
   spanish: string;
   russian: string;
   addedAt: number;
   isManual?: boolean;
+}
+
+export interface ImportReport {
+  addedCount: number;
+  skippedWords: { index?: number; spanish: string; russian: string; reason: string }[];
+  duplicateCount: number;
+  timestamp: number;
+}
+
+export interface QuizHistoryItem {
+  id: string;
+  total: number;
+  correct: number;
+  wrong: number;
+  percentage: number;
+  timestamp: number;
 }
 
 export interface Translations {
@@ -27,6 +44,7 @@ export interface Translations {
   correct: string;
   wrong: string;
   aiHelpBtn: string;
+  continueBtn: string;
   placeholderSp: string;
   placeholderRu: string;
   autoTranslate: string;
@@ -34,6 +52,12 @@ export interface Translations {
   totalWords: string;
   lastAdded: string;
   alreadyInDictionary: string;
+  importNewAdded: string;
+  importAllSuccess: string;
+  importWordsSkipped: string;
+  importReportTitle: string;
+  importGotIt: string;
+  duplicateFound: string;
   exportBtn: string;
   importBtn: string;
   importSuccess: string;
@@ -41,4 +65,9 @@ export interface Translations {
   fileUploadBtn: string;
   fileUploadError: string;
   fileProcessing: string;
+  quizRangeTitle: string;
+  quizStartBtn: string;
+  quizWordsCount: string;
+  repeatBtn: string;
+  quizHistoryTitle: string;
 }

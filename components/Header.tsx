@@ -14,8 +14,9 @@ export const Header: React.FC<HeaderProps> = ({ lang, onToggleLang, langLabel })
       <div className="w-full max-w-4xl mx-auto flex items-center justify-between">
         {/* Left: Branding */}
         <div className="flex items-center gap-2">
-          <div className="bg-yellow-400 text-red-600 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm">
-            <i className="fas fa-language text-lg"></i>
+          <div className="bg-yellow-400 text-red-600 w-9 h-9 rounded-xl flex flex-col items-center justify-center shadow-sm leading-none">
+            <span className="text-[10px] font-black">A</span>
+            <span className="text-[10px] font-black">Z</span>
           </div>
           <h1 className="text-xl font-black text-slate-800 tracking-tight hidden xs:block">
             Pala<span className="text-red-500">bra</span>
